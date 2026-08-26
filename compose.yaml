@@ -1,0 +1,28 @@
+services:
+  app:
+    build: .
+    image: moss-note:0.2.0
+    restart: unless-stopped
+    init: true
+    network_mode: host
+    environment:
+      MOSS_DATA_DIR: /app/data
+      MOSS_APP_HOST: 127.0.0.1
+      MOSS_APP_PORT: ${MOSS_APP_PORT:-8000}
+      MOSS_VLLM_URL: ${MOSS_DOCKER_VLLM_URL:-http://127.0.0.1:8001/v1}
+      QWEN_VLLM_URL: ${QWEN_DOCKER_VLLM_URL:-http://127.0.0.1:8002/v1}
+      MOSS_MODEL_NAME: ${MOSS_MODEL_NAME:-moss-mtd}
+      QWEN_MODEL_NAME: ${QWEN_MODEL_NAME:-qwen3.8-27b}
+      MOSS_REQUIRE_QWEN: ${MOSS_REQUIRE_QWEN:-true}
+      MOSS_MAX_UPLOAD_GB: ${MOSS_MAX_UPLOAD_GB:-5}
+      MOSS_CHUNK_SECONDS: ${MOSS_CHUNK_SECONDS:-5400}
+      MOSS_BRIDGE_SECONDS: ${MOSS_BRIDGE_SECONDS:-300}
+      QWEN_WINDOW_TARGET: ${QWEN_WINDOW_TARGET:-48}
+      QWEN_WINDOW_CONTEXT: ${QWEN_WINDOW_CONTEXT:-12}
+      MOSS_AUTH_USERNAME: ${MOSS_AUTH_USERNAME:-}
+      MOSS_AUTH_PASSWORD: ${MOSS_AUTH_PASSWORD:-}
+    volumes:
+      - moss-data:/app/data
+
+volumes:
+  moss-data:

@@ -1,0 +1,20 @@
+[project]
+name = "moss-note"
+version = "0.2.0"
+description = "Self-hosted, speaker-aware meeting transcription and terminology correction"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "fastapi>=0.116,<1",
+  "httpx>=0.28,<1",
+  "python-multipart>=0.0.20,<1",
+  "uvicorn[standard]>=0.35,<1",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.4,<9",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

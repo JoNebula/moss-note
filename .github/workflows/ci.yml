@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install FFmpeg and project
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          python -m pip install uv
+          uv sync --frozen --group dev
+      - name: Python tests
+        run: .venv/bin/pytest -q
+      - name: Syntax checks
+        run: |
+          .venv/bin/python -m py_compile app/*.py
+          node --check static/app.js
+          for script in scripts/*.sh; do bash -n "$script"; done
+
+  container:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build application image
+        run: docker build -t moss-note:ci .

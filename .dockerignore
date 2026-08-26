@@ -1,0 +1,13 @@
+.git
+.github
+.tools
+.venv
+.venv-vllm
+.pytest_cache
+__pycache__
+*.py[cod]
+.env
+data
+logs
+models
+htmlcov

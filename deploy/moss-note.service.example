@@ -1,0 +1,17 @@
+[Unit]
+Description=MOSS Note transcription stack
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=YOUR_USER
+WorkingDirectory=/opt/moss-note
+Environment=MOSS_ENV_FILE=/opt/moss-note/.env
+ExecStart=/opt/moss-note/scripts/start.sh
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target

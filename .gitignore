@@ -1,0 +1,16 @@
+.venv/
+.venv-vllm/
+.tools/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+__pycache__/
+*.py[cod]
+.DS_Store
+data/
+models/
+logs/
+.env
+.env.*
+!.env.example

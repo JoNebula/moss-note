@@ -1,0 +1,1 @@
+"""MOSS Note application package."""

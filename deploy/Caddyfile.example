@@ -1,0 +1,5 @@
+# Replace the hostname and point DNS at this server. Caddy provisions TLS.
+note.example.com {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:8000
+}
