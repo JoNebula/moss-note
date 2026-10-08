@@ -43,6 +43,8 @@ def test_snapshot_preserves_data_but_not_machine_timings(tmp_path):
     assert (destination / "uploads/test.wav").read_bytes() == b"synthetic"
     assert not (destination / "timings.sqlite3").exists()
     assert len(result["sha256"]["moss-note.sqlite3"]) == 64
+    assert list(destination.glob("moss-note.sqlite3*")) == [destination / "moss-note.sqlite3"]
+    assert not any(name.endswith(("-wal", "-shm")) for name in result["sha256"])
     with sqlite3.connect(destination / "moss-note.sqlite3") as database:
         assert database.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
         assert database.execute("SELECT source_path FROM notes").fetchone()[0] == str(source / "uploads/test.wav")

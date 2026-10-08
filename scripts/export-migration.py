@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import closing
 from datetime import UTC, datetime
 import hashlib
 import json
@@ -20,7 +21,7 @@ def export_data(source: Path, destination: Path) -> dict:
     if source == destination or destination.is_relative_to(source):
         raise ValueError("The snapshot must be outside the live data directory")
     database = source / "moss-note.sqlite3"
-    with sqlite3.connect(database.as_uri() + "?mode=ro", uri=True) as connection:
+    with closing(sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)) as connection:
         busy = connection.execute(
             "SELECT COUNT(*) FROM notes WHERE status IN ('queued', 'processing') "
             "OR correction_status IN ('queued', 'processing')"
@@ -29,8 +30,9 @@ def export_data(source: Path, destination: Path) -> dict:
             raise ValueError("Pending jobs exist; finish them before migration")
         note_count = connection.execute("SELECT COUNT(*) FROM notes").fetchone()[0]
         destination.mkdir(mode=0o2770, parents=True, exist_ok=False)
-        with sqlite3.connect(destination / "moss-note.sqlite3") as backup:
+        with closing(sqlite3.connect(destination / "moss-note.sqlite3")) as backup:
             connection.backup(backup)
+            backup.execute("PRAGMA journal_mode=DELETE")
             if backup.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
                 raise ValueError("SQLite backup integrity check failed")
     # Timings belong to Orin. Thor starts its own duration/model timing history.

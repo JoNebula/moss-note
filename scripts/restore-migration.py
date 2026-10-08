@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import configparser
+from contextlib import closing
 import grp
 import hashlib
 import json
@@ -41,7 +42,7 @@ def restore_data(snapshot: Path, destination: Path) -> dict:
     old_root = Path(manifest["restore_data_dir"])
     destination = destination.resolve()
     shutil.copytree(snapshot / "data", destination)
-    with sqlite3.connect(destination / "moss-note.sqlite3") as connection:
+    with closing(sqlite3.connect(destination / "moss-note.sqlite3")) as connection, connection:
         for note_id, source, normalized, artifacts in connection.execute(
             "SELECT id, source_path, normalized_path, correction_artifacts_path FROM notes"
         ).fetchall():
