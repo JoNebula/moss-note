@@ -26,7 +26,7 @@ original `.env` privately as `.env.orin`, run on Thor:
 
 ```sh
 .venv/bin/python scripts/restore-migration.py \
-  --snapshot migration/20261008T132827Z-thor-migration \
+  --snapshot migration/20261008T134723Z-thor-migration \
   --source-env .env.orin --enable-fan
 bash scripts/install-local-services.sh
 ```
@@ -41,6 +41,67 @@ Docker. Install the fan unit only after validating Thor's cooling commands.
 The service installer grants only model restart and fan start/stop; it does
 not install/start the tunnel or enable the fan at boot. Do not mix this local
 layout with the original same-path migration commands below.
+
+## Verified Thor Deployment (2026-10-08)
+
+The inspected target is Jetson AGX Thor, L4T 39.2.1, driver 595.78 and host
+CUDA 13.2. Its existing 120W power mode was retained. The rebuilt runtime uses
+PyTorch 2.11.0+cu130 (native SM110), vLLM 0.23.1rc1.dev949+g68b4a1d58,
+Transformers 5.18.0, compressed-tensors 0.17.0, FlashInfer 0.6.13, Triton
+3.6.0 and NVIDIA's CUDA assembler 13.2.86. Install the project-local runtime
+after creating `.venv-vllm` and installing Python development headers:
+
+```sh
+ROOT=/home/jetson/project/moss_stt
+"$ROOT/.tools/uv" pip install --python "$ROOT/.venv-vllm/bin/python" \
+  'vllm[audio]==0.23.1rc1.dev949+g68b4a1d58' 'torch==2.11.0+cu130' \
+  'transformers==5.18.0' 'compressed-tensors==0.17.0' \
+  'flashinfer-python==0.6.13' 'triton==3.6.0' 'nvidia-cuda-nvcc==13.2.86' \
+  --torch-backend=cu130 \
+  --extra-index-url https://wheels.vllm.ai/68b4a1d582818e67adc903bf1b8fc5a5447da2fa/cu130 \
+  --cache-dir "$ROOT/caches/uv"
+```
+
+The private migration directory records all 201 installed inference package
+versions in `runtime-freeze.txt`. No virtual environment or compile cache was
+copied from Orin. FFmpeg and Python development headers were installed; only
+required Python/Expat patch dependencies were updated, not NVIDIA drivers,
+JetPack, boot settings or partitions.
+
+- All three checkpoint manifests passed SHA256 verification (BF16: 20 files;
+  W8/W4: 18 each). Only MOSS checkpoints were transferred.
+- Six original notes, two upload diagnostics, audio and correction artifacts
+  were restored. Canonical SQLite comparison excludes only the three rebased
+  audio/artifact paths; the original and restored note contents match exactly.
+- 97 unit tests passed on Orin and Thor. GitHub CI and container build passed.
+- BF16/W8/W4 live uploads, actual ASR, model switching, maximum fan and
+  automatic fan restoration passed. RTN variants use Marlin on Thor.
+- Real Codex Fast correction, summary/downloads, speaker merge and
+  text-preserving undo passed using synthetic text only.
+- CUDA Graph remains enabled (`FULL_DECODE_ONLY`, capture size 1), with
+  TRITON_ATTN, 8 GiB KV cache, 32768 context, 16384 batched/output tokens,
+  1200-second chunks and 120-second overlap. Eager execution is not enabled.
+- The retained 1320-second local sample completed two W4 requests and merge
+  in 166.912 seconds, producing 243 segments ending beyond 1300 seconds.
+  The prior Orin run took 213.591 seconds with 257 segments. These are single
+  runs with different generated output, not a controlled throughput or
+  transcription-accuracy comparison. Thor learns its own ETA timing history.
+
+Data, snapshots and caches have private parent directories (mode 700); auth
+and tunnel files are mode 600. The public MOSS weight files retain mode 664.
+Model/app endpoints remain localhost-only. Cloudflared runs from
+`.tools/cloudflared` as the deployment user and retains HTTP/2 and the
+existing tunnel/DNS; it does not require inbound school-network ports.
+
+The existing `stt.seongwoonjo.com` and `tts.seongwoonjo.com` routes were
+switched to Thor only after final SQLite and 112 non-database file checks.
+Public cookie login, upload/ASR, edited synthetic-text Fast correction and
+downloads passed. The small public correction took 9.44 seconds, not a
+long-meeting latency estimate. Thor app/model/tunnel units are enabled at
+boot; the fan unit remains on demand. Orin units are stopped and disabled,
+with its original data/models untouched. Reconcile any new Thor writes
+before considering a rollback. Standalone `uv`/cloudflared binaries were
+copied privately into `.tools/`; secret files and note data remain out of Git.
 
 ## What Goes Where
 
@@ -99,7 +160,9 @@ can download a model if its path is not configured.
 
 ## 3. Build A Thor Runtime
 
-The app requires Python 3.12, FFmpeg and `uv`. Keep caches on NVMe:
+The app requires Python 3.12, its development headers (`python3.12-dev`),
+FFmpeg, GCC and `uv`. Triton compiles a small Python/CUDA launcher on first
+use. Keep caches on NVMe:
 
 ```sh
 export UV_CACHE_DIR=/data/caches/uv
@@ -119,6 +182,13 @@ supports MOSS, audio transcription and both quantized checkpoints. Rebuild
 native kernels for Thor. Do not copy `.venv-vllm`, engine binaries, or JIT caches.
 BF16 is the recovery option if a quantized kernel fails; never silently use
 another precision for an existing queued note.
+
+On the inspected Thor, the Triton 3.6.0 bundled `ptxas-blackwell` rejects
+`sm_110a`. The CUDA 13.2.86 assembler installed by `nvidia-cuda-nvcc` does
+support it. Project-local configuration sets `TRITON_PTXAS_BLACKWELL_PATH`
+to `.venv-vllm/lib/python3.12/site-packages/nvidia/cu13/bin/ptxas` using its
+absolute project path. Do not change the GPU architecture or disable CUDA
+Graphs to conceal an incompatible assembler.
 
 NVIDIA's [Thor CUDA setup](https://docs.nvidia.com/jetson/agx-thor-devkit/user-guide/latest/setup_cuda.html)
 describes JetPack packages and warns not to replace the Jetson driver using

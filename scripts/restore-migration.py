@@ -95,6 +95,9 @@ def configure(root: Path, data: Path, source_env: Path, fan: bool) -> None:
         "PIP_CACHE_DIR": str(caches / "pip"), "UV_CACHE_DIR": str(caches / "uv"),
         "UV_PYTHON_INSTALL_DIR": str(caches / "uv-python"),
         "TRITON_CACHE_DIR": str(caches / "triton"), "CUDA_CACHE_PATH": str(caches / "cuda"),
+        "TRITON_PTXAS_BLACKWELL_PATH": str(
+            root / ".venv-vllm/lib/python3.12/site-packages/nvidia/cu13/bin/ptxas"
+        ),
         "FLASHINFER_WORKSPACE_BASE": str(caches / "flashinfer"),
         "XDG_CACHE_HOME": str(caches), "TMPDIR": str(caches / "moss-note/tmp"),
     })
@@ -117,6 +120,10 @@ def configure(root: Path, data: Path, source_env: Path, fan: bool) -> None:
             unit["Service"]["User"] = user
             unit["Service"]["Group"] = group
             unit["Unit"]["RequiresMountsFor"] = str(root)
+        if name == "tunnel":
+            unit["Service"]["ExecStart"] = unit["Service"]["ExecStart"].replace(
+                "/usr/bin/cloudflared", str(root / ".tools/cloudflared")
+            )
         with (local / filename).open("x") as file:
             unit.write(file, space_around_delimiters=False)
     (local / "moss-note.sudoers").write_text(

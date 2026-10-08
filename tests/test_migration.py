@@ -130,6 +130,9 @@ def test_local_configuration_keeps_secrets_private_and_rebases_units(tmp_path):
     assert env["MOSS_REQUIRE_QWEN"] == "false"
     assert env["MOSS_MODELS_DIR"] == str(root / "models")
     assert env["MOSS_DATA_DIR"] == str(data)
+    assert env["TRITON_PTXAS_BLACKWELL_PATH"] == str(
+        root / ".venv-vllm/lib/python3.12/site-packages/nvidia/cu13/bin/ptxas"
+    )
     assert (root / ".env").stat().st_mode & 0o777 == 0o600
     assert all(Path(entry["path"]).is_relative_to(root / "models") for entry in
                json.loads((deploy / "model-variants.local.json").read_text()).values())
@@ -137,6 +140,8 @@ def test_local_configuration_keeps_secrets_private_and_rebases_units(tmp_path):
     unit.read(deploy / "local/moss-note-app.service")
     assert unit["Service"]["WorkingDirectory"] == str(root)
     assert unit["Service"]["ExecStart"] == str(root / "scripts/run-app.sh")
+    unit.read(deploy / "local/moss-note-tunnel.service")
+    assert unit["Service"]["ExecStart"].startswith(str(root / ".tools/cloudflared"))
     assert "NOPASSWD: ALL" not in (deploy / "local/moss-note.sudoers").read_text()
     with pytest.raises(FileExistsError):
         restore.configure(root, data, source, True)
