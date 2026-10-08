@@ -6,6 +6,42 @@ upstream release. Preserve the BF16/W8/W4 selector, 20-minute chunks with
 Codex correction plus source-free summary (`gpt-6.1-sol`, medium, Fast).
 No separate Qwen checkpoint is needed or should be downloaded.
 
+## Approved Project-Local Thor Layout
+
+The user approved a Thor-only storage-policy exception on 2026-10-08:
+`/home/jetson/project/moss_stt` is on `/dev/nvme0n1p1`, with models under
+`models/<model>/<exact-version>/`, immutable migration snapshots under
+`migration/`, active notes under `data/<snapshot-version>/`, and caches under
+`caches/`. No `/data` mount, partition, boot or fstab change is needed.
+Orin retains its existing `/data` paths and default settings.
+
+`MOSS_MODELS_DIR` explicitly changes the trusted model storage root; the
+catalogue still allows only BF16/W8/W4 and rejects paths outside that root.
+`MOSS_CACHE_DIR` redirects app/Codex temporary files and caches. Without
+these settings, the original `/data/models` and `/data/caches/moss-note`
+defaults remain unchanged.
+
+After copying an offline snapshot, all three model checkpoints, and the
+original `.env` privately as `.env.orin`, run on Thor:
+
+```sh
+.venv/bin/python scripts/restore-migration.py \
+  --snapshot migration/20261008T132827Z-thor-migration \
+  --source-env .env.orin --enable-fan
+bash scripts/install-local-services.sh
+```
+
+The restore script verifies snapshot hashes, creates a new data directory,
+rebases only stored audio/artifact paths in its copied SQLite database, and
+generates `.env`, `deploy/model-variants.local.json` and `deploy/local/` units
+for the actual user/group/project path. It refuses existing deployment/data
+directories and leaves the original snapshot/Orin database intact. Secrets,
+models, live data, caches and local generated units are excluded from Git and
+Docker. Install the fan unit only after validating Thor's cooling commands.
+The service installer grants only model restart and fan start/stop; it does
+not install/start the tunnel or enable the fan at boot. Do not mix this local
+layout with the original same-path migration commands below.
+
 ## What Goes Where
 
 | Item | Transfer method |

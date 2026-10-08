@@ -16,10 +16,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install FFmpeg and project
+      - name: Install Python project
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
           python -m pip install uv
           uv sync --frozen --group dev
       - name: Prepare isolated Jetson cache paths

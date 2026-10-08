@@ -16,4 +16,8 @@ __pycache__
 data
 logs
 models
+caches
+migration
+deploy/local
+deploy/*.local.json
 htmlcov

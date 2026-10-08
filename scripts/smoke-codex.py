@@ -3,6 +3,7 @@
 import asyncio
 import argparse
 import json
+import os
 from pathlib import Path
 import sys
 import time
@@ -40,7 +41,7 @@ def check_api():
     data = Path(configuration["MOSS_DATA_DIR"])
     store = NoteStore(data / "moss-note.sqlite3")
     source = source_segments()
-    directory = new_run_directory(Path("/data/artifacts/moss-note/20261008-whole-file-speakers"), "api")
+    directory = new_run_directory(data / "diagnostics/codex-smoke", "api")
     note_id = uuid.uuid4().hex
     audio = data / "uploads" / note_id / "synthetic.wav"
     audio.parent.mkdir(parents=True)
@@ -120,7 +121,7 @@ def check_api():
 
 async def main():
     source = source_segments()
-    directory = new_run_directory(Path("/data/artifacts/moss-note/20261008-whole-file-speakers"), "synthetic")
+    directory = new_run_directory(Path(os.getenv("MOSS_DATA_DIR", "/data/artifacts/moss-note")) / "diagnostics/codex-smoke", "synthetic")
     worker = CodexPostprocessor.from_env()
     document = {"title": "Synthetic cache meeting", "known_terms": "Kubernetes, Redis",
                 "speaker_names": {"S01": "A", "S02": "B"}, "segments": source}

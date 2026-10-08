@@ -11,7 +11,7 @@ if [[ ! -x .venv/bin/uvicorn ]]; then
 fi
 
 export MOSS_VLLM_URL="${MOSS_VLLM_URL:-http://127.0.0.1:8001/v1}"
-export TMPDIR="${TMPDIR:-/data/caches/moss-note/tmp}"
+export TMPDIR="${TMPDIR:-${MOSS_CACHE_DIR:-/data/caches/moss-note}/tmp}"
 mkdir -p "$TMPDIR"
 exec .venv/bin/uvicorn app.main:app \
   --host "${MOSS_APP_HOST:-127.0.0.1}" \

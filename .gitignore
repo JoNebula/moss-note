@@ -11,6 +11,10 @@ __pycache__/
 data/
 models/
 logs/
+caches/
+migration/
+deploy/local/
+deploy/*.local.json
 .cloudflare-tunnel-token
 .deployment-credentials
 .env

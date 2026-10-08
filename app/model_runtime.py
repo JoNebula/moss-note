@@ -33,10 +33,13 @@ class ModelRuntime:
             variants = json.loads(catalogue.read_text())
             if set(variants) != {"bf16", "rtn-w8", "rtn-w4"}:
                 raise ValueError("Unexpected model variant catalogue")
+            model_root = Path(os.getenv("MOSS_MODELS_DIR", "/data/models"))
+            if not model_root.is_absolute():
+                raise ValueError("Managed model storage root must be absolute")
             for variant in variants.values():
                 path = Path(variant["path"])
-                if not path.is_absolute() or not path.resolve().is_relative_to("/data/models"):
-                    raise ValueError("Managed models must use pinned /data/models paths")
+                if not path.is_absolute() or not path.resolve().is_relative_to(model_root.resolve()):
+                    raise ValueError(f"Managed models must use pinned {model_root} paths")
             selection = Path(os.environ["MOSS_MODEL_SELECTION_FILE"])
         else:
             variants = {"bf16": {"label": "BF16", "path": os.getenv("MOSS_MODEL_PATH", "")}}

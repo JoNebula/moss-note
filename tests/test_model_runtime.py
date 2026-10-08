@@ -45,6 +45,27 @@ def test_managed_catalogue_rejects_paths_outside_model_storage(tmp_path, monkeyp
         ModelRuntime.from_env()
 
 
+def test_explicit_model_storage_root_still_rejects_escape(tmp_path, monkeypatch):
+    root = tmp_path / "models"
+    root.mkdir()
+    catalogue = tmp_path / "variants.json"
+    variants = {key: {"path": str(root / key / "v1"), "label": key}
+                for key in ("bf16", "rtn-w8", "rtn-w4")}
+    catalogue.write_text(json.dumps(variants))
+    monkeypatch.setenv("MOSS_MANAGED_MODELS", "true")
+    monkeypatch.setenv("MOSS_MODELS_DIR", str(root))
+    monkeypatch.setenv("MOSS_MODEL_VARIANTS_FILE", str(catalogue))
+    monkeypatch.setenv("MOSS_MODEL_SELECTION_FILE", str(tmp_path / "selected.json"))
+    assert ModelRuntime.from_env().variants == variants
+    variants["rtn-w4"]["path"] = str(root / ".." / "outside")
+    catalogue.write_text(json.dumps(variants))
+    with pytest.raises(ValueError, match="pinned"):
+        ModelRuntime.from_env()
+    monkeypatch.setenv("MOSS_MODELS_DIR", "models")
+    with pytest.raises(ValueError, match="absolute"):
+        ModelRuntime.from_env()
+
+
 def test_same_model_does_not_restart(runtime, monkeypatch):
     monkeypatch.setattr(runtime, "active_variant", AsyncMock(return_value="bf16"))
     restart = AsyncMock()

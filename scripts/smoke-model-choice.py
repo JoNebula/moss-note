@@ -1,5 +1,6 @@
 """Exercise the live serial queue and cooling lifecycle with an existing sample."""
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 import subprocess
 import time
@@ -8,23 +9,26 @@ import httpx
 from dotenv import dotenv_values
 
 
-OUTPUT = Path("/data/artifacts/moss-note/20261007T163000Z-model-choice")
-AUDIO = Path("/data/artifacts/moss-note/20261006T062500Z-service/jfk.flac")
-OUTPUT.mkdir(parents=True, exist_ok=True)
-results = []
 configuration = dotenv_values(Path(__file__).resolve().parents[1] / ".env")
+OUTPUT = Path(configuration["MOSS_DATA_DIR"]) / "diagnostics" / (
+    datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "-model-choice"
+)
+AUDIO = Path(configuration["MOSS_DATA_DIR"]) / "jfk.flac"
+OUTPUT.mkdir(parents=True, exist_ok=False)
+results = []
 auth = (configuration["MOSS_AUTH_USERNAME"], configuration["MOSS_AUTH_PASSWORD"])
 
 
 def fan_state():
     active = subprocess.run(["systemctl", "is-active", "moss-note-fan"],
                             capture_output=True, text=True).stdout.strip()
-    pwm = [p.read_text().strip() for p in Path("/sys/devices/platform/pwm-fan/hwmon").glob("hwmon*/pwm1")]
+    pwm = [p.read_text().strip() for p in Path("/sys/class/hwmon").glob("hwmon*/pwm1")]
     return {"service": active, "pwm": pwm}
 
 
 with httpx.Client(base_url="http://127.0.0.1:8000", auth=auth, timeout=30) as client:
-    for variant in ("bf16", "rtn-w8", "rtn-w4", "bf16"):
+    initial_variant = client.get("/api/health").json()["model_runtime"]["active"]
+    for variant in ("bf16", "rtn-w8", "rtn-w4", initial_variant):
         with AUDIO.open("rb") as audio:
             response = client.post("/api/notes", data={"title": f"Model choice smoke {variant}",
                                     "model_variant": variant}, files={"file": ("smoke.flac", audio)})
@@ -37,7 +41,7 @@ with httpx.Client(base_url="http://127.0.0.1:8000", auth=auth, timeout=30) as cl
         while time.monotonic() - started < 300:
             note = client.get(f"/api/notes/{note_id}").json()
             fan = fan_state()
-            saw_max |= fan["service"] == "active" and fan["pwm"] == ["255"]
+            saw_max |= fan["service"] == "active" and bool(fan["pwm"]) and all(pwm == "255" for pwm in fan["pwm"])
             if note["status"] == "processing":
                 try:
                     model_response = httpx.get("http://127.0.0.1:8001/v1/models", timeout=0.5)
@@ -67,7 +71,7 @@ with httpx.Client(base_url="http://127.0.0.1:8000", auth=auth, timeout=30) as cl
         results.append(result)
         (OUTPUT / "live-results.json").write_text(json.dumps(results, indent=2, ensure_ascii=False))
         assert note["status"] == "done", note.get("error")
-        catalogue = json.loads(Path("deploy/model-variants.json").read_text())
+        catalogue = json.loads(Path(configuration["MOSS_MODEL_VARIANTS_FILE"]).read_text())
         assert note["model_variant"] == variant and catalogue[variant]["path"] in observed_roots
         assert note["segments"] and saw_max and result["chunk_seconds"] == 1200
         if not busy:

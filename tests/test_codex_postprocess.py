@@ -40,7 +40,8 @@ def test_cli_is_pinned_and_has_no_tools(tmp_path):
         assert any(command[index:index + 2] == ["--disable", tool] for index in range(len(command)))
 
 
-def test_run_collects_usage_without_passing_server_secrets(monkeypatch, tmp_path):
+@pytest.mark.parametrize("custom_cache", [False, True])
+def test_run_collects_usage_without_passing_server_secrets(monkeypatch, tmp_path, custom_cache):
     captured = {}
 
     class Process:
@@ -58,6 +59,19 @@ def test_run_collects_usage_without_passing_server_secrets(monkeypatch, tmp_path
     monkeypatch.setenv("MOSS_AUTH_PASSWORD", "private")
     monkeypatch.setenv("OPENAI_API_KEY", "do-not-use")
     monkeypatch.setenv("CODEX_API_KEY", "do-not-use")
+    if custom_cache:
+        monkeypatch.setenv("MOSS_CACHE_DIR", str(tmp_path / "cache"))
+    else:
+        monkeypatch.delenv("MOSS_CACHE_DIR", raising=False)
+        original_mkdir = Path.mkdir
+
+        def isolated_mkdir(path, *args, **kwargs):
+            if path in (Path("/data/caches/moss-note/tmp"), Path("/data/caches/moss-note/codex")):
+                captured.setdefault("cache_directories", []).append(path)
+                return None
+            return original_mkdir(path, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "mkdir", isolated_mkdir)
     monkeypatch.setattr(codex.asyncio, "create_subprocess_exec", spawn)
     result, usage = asyncio.run(codex.CodexPostprocessor("/fake/codex").run("data only", {}, tmp_path / "job"))
     assert result == summary()
@@ -66,7 +80,11 @@ def test_run_collects_usage_without_passing_server_secrets(monkeypatch, tmp_path
     assert captured["start_new_session"] is True
     assert not any(key.startswith(("MOSS_", "QWEN_")) for key in captured["env"])
     assert "OPENAI_API_KEY" not in captured["env"] and "CODEX_API_KEY" not in captured["env"]
-    assert captured["env"]["TMPDIR"].startswith("/data/")
+    expected = tmp_path / "cache" if custom_cache else Path("/data/caches/moss-note")
+    assert captured["env"]["TMPDIR"] == str(expected / "tmp")
+    assert captured["env"]["XDG_CACHE_HOME"] == str(expected / "codex")
+    if not custom_cache:
+        assert captured["cache_directories"] == [expected / "tmp", expected / "codex"]
     assert json.loads((tmp_path / "job" / "manifest.json").read_text())["reasoning_effort"] == "medium"
     assert json.loads((tmp_path / "job" / "manifest.json").read_text())["requested_service_tier"] == "priority"
 

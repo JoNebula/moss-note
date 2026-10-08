@@ -153,8 +153,9 @@ class CodexPostprocessor:
         request_file.write_text(prompt)
         environment = {key: value for key, value in os.environ.items()
                        if not key.startswith(("MOSS_", "QWEN_")) and key not in {"OPENAI_API_KEY", "CODEX_API_KEY"}}
-        environment["TMPDIR"] = "/data/caches/moss-note/tmp"
-        environment["XDG_CACHE_HOME"] = "/data/caches/moss-note/codex"
+        cache = Path(os.getenv("MOSS_CACHE_DIR", "/data/caches/moss-note")).resolve()
+        environment["TMPDIR"] = str(cache / "tmp")
+        environment["XDG_CACHE_HOME"] = str(cache / "codex")
         Path(environment["TMPDIR"]).mkdir(parents=True, exist_ok=True)
         Path(environment["XDG_CACHE_HOME"]).mkdir(parents=True, exist_ok=True)
         started = time.monotonic()
