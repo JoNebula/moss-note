@@ -10,6 +10,7 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -21,6 +22,8 @@ jobs:
           sudo apt-get install -y ffmpeg
           python -m pip install uv
           uv sync --frozen --group dev
+      - name: Prepare isolated Jetson cache paths
+        run: sudo install -d -o "$(id -un)" /data/caches/moss-note/tmp /data/caches/moss-note/codex
       - name: Python tests
         run: .venv/bin/pytest -q
       - name: Syntax checks

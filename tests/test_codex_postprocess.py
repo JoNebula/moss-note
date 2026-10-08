@@ -105,8 +105,11 @@ def test_cancel_terminates_real_child_process(monkeypatch, tmp_path):
 
     async def check():
         task = asyncio.create_task(worker.run("", {}, tmp_path / "cancel"))
-        while not processes:
-            await asyncio.sleep(0.01)
+        async with asyncio.timeout(5):
+            while not processes:
+                if task.done():
+                    await task
+                await asyncio.sleep(0.01)
         task.cancel()
         with pytest.raises(asyncio.CancelledError):
             await task
