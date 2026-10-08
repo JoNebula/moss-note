@@ -1,0 +1,12 @@
+[Unit]
+Description=Maximum Jetson fan during MOSS transcription
+BindsTo=moss-note-app.service
+After=moss-note-app.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/jetson_clocks --fan
+ExecStopPost=/usr/bin/systemctl restart nvfancontrol.service
+TimeoutStartSec=30
+TimeoutStopSec=30

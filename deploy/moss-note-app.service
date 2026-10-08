@@ -1,0 +1,20 @@
+[Unit]
+Description=MOSS Note web application
+After=network-online.target
+Wants=network-online.target
+RequiresMountsFor=/data
+
+[Service]
+Type=simple
+User=jetson
+Group=mlshared
+WorkingDirectory=/data/projects/jetson/moss_stt
+Environment=MOSS_ENV_FILE=/data/projects/jetson/moss_stt/.env
+ExecStart=/data/projects/jetson/moss_stt/scripts/run-app.sh
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=60
+UMask=0007
+
+[Install]
+WantedBy=multi-user.target

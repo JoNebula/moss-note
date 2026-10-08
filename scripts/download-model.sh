@@ -13,4 +13,4 @@ fi
 
 mkdir -p "$PROJECT_DIR/models"
 echo "$MODEL_ID -> $MODEL_DIR"
-"$PROJECT_DIR/.venv-vllm/bin/hf" download "$MODEL_ID" --local-dir "$MODEL_DIR"
+"$PROJECT_DIR/.venv-vllm/bin/hf" download "$MODEL_ID" --revision "${MOSS_MODEL_REVISION:-main}" --local-dir "$MODEL_DIR"

@@ -24,12 +24,12 @@ echo "vLLM 시작 중 (GPU ${MOSS_CUDA_DEVICE:-0})... 로그: logs/vllm.log"
 "$PROJECT_DIR/scripts/run-vllm.sh" >"$PROJECT_DIR/logs/vllm.log" 2>&1 &
 VLLM_PID=$!
 
-if [[ -f "$QWEN_MODEL_PATH/config.json" ]]; then
+if [[ "${MOSS_REQUIRE_QWEN:-false}" == "true" && -f "$QWEN_MODEL_PATH/config.json" ]]; then
   echo "Qwen3.8 시작 중 (GPU ${QWEN_CUDA_DEVICE:-1})... 로그: logs/qwen.log"
   "$PROJECT_DIR/scripts/run-qwen.sh" >"$PROJECT_DIR/logs/qwen.log" 2>&1 &
   QWEN_PID=$!
 else
-  echo "Qwen 모델이 없어 AI 교정 서버는 건너뜁니다. ./scripts/download-qwen.sh 로 설치할 수 있습니다."
+  echo "레거시 Qwen 서버는 건너뜁니다. AI 교정은 로그인된 Codex CLI를 사용합니다."
 fi
 
 for _ in $(seq 1 300); do

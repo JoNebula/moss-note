@@ -1,0 +1,14 @@
+{
+  "bf16": {
+    "label": "BF16 (original)",
+    "path": "/data/models/MOSS-Transcribe-Diarize/20260902-704aa4a9"
+  },
+  "rtn-w8": {
+    "label": "W8A16 (RTN)",
+    "path": "/data/models/MOSS-Transcribe-Diarize-W8A16-RTN/20261008-704aa4a9-g128"
+  },
+  "rtn-w4": {
+    "label": "W4A16 (RTN)",
+    "path": "/data/models/MOSS-Transcribe-Diarize-W4A16-RTN/20261008-704aa4a9-g128"
+  }
+}

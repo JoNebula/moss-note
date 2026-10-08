@@ -61,6 +61,15 @@ class NoteStore:
                 row["name"]
                 for row in connection.execute("PRAGMA table_info(notes)").fetchall()
             }
+            for column in ("chunk_seconds", "chunk_overlap_seconds"):
+                if column not in columns:
+                    connection.execute(f"ALTER TABLE notes ADD COLUMN {column} INTEGER")
+            if "processing_json" not in columns:
+                connection.execute("ALTER TABLE notes ADD COLUMN processing_json TEXT NOT NULL DEFAULT '{}'")
+            connection.execute("""CREATE TABLE IF NOT EXISTS upload_metrics (
+                note_id TEXT, bytes INTEGER NOT NULL, transfer_seconds REAL NOT NULL,
+                response_wait_seconds REAL NOT NULL, cf_ray TEXT, recorded_at TEXT NOT NULL
+            )""")
             if "chunk_count" not in columns:
                 connection.execute(
                     "ALTER TABLE notes ADD COLUMN chunk_count INTEGER NOT NULL DEFAULT 1"
@@ -70,6 +79,17 @@ class NoteStore:
                     "ALTER TABLE notes ADD COLUMN processed_chunks INTEGER NOT NULL DEFAULT 0"
                 )
             migrations = {
+                "speaker_merge_history_json": "TEXT NOT NULL DEFAULT '[]'",
+                "summary_stale": "INTEGER NOT NULL DEFAULT 0",
+                "correction_mode": "TEXT NOT NULL DEFAULT 'windows'",
+                "correction_service_tier": "TEXT",
+                "correction_output_mode": "TEXT NOT NULL DEFAULT 'full'",
+                "correction_backend": "TEXT",
+                "correction_phase": "TEXT NOT NULL DEFAULT 'idle'",
+                "correction_usage_json": "TEXT NOT NULL DEFAULT '{}'",
+                "summary_json": "TEXT NOT NULL DEFAULT '{}'",
+                "correction_artifacts_path": "TEXT",
+                "model_variant": "TEXT NOT NULL DEFAULT 'bf16'",
                 "raw_segments_json": "TEXT NOT NULL DEFAULT '[]'",
                 "correction_source_segments_json": "TEXT NOT NULL DEFAULT '[]'",
                 "corrected_segments_json": "TEXT NOT NULL DEFAULT '[]'",
@@ -98,6 +118,20 @@ class NoteStore:
     def create(self, note: dict[str, Any]) -> dict[str, Any]:
         now = datetime.now(UTC).isoformat()
         values = {
+            "speaker_merge_history_json": "[]",
+            "summary_stale": 0,
+            "correction_mode": "whole-file",
+            "correction_service_tier": None,
+            "correction_output_mode": "changes",
+            "correction_backend": None,
+            "correction_phase": "idle",
+            "correction_usage_json": "{}",
+            "summary_json": "{}",
+            "correction_artifacts_path": None,
+            "processing_json": "{}",
+            "chunk_seconds": None,
+            "chunk_overlap_seconds": None,
+            "model_variant": "bf16",
             "normalized_path": None,
             "duration": None,
             "chunk_count": 1,
@@ -174,6 +208,10 @@ class NoteStore:
         if not changes:
             return self.get(note_id)
         json_fields = {
+            "speaker_merge_history": "speaker_merge_history_json",
+            "correction_usage": "correction_usage_json",
+            "summary": "summary_json",
+            "processing": "processing_json",
             "raw_segments": "raw_segments_json",
             "segments": "segments_json",
             "correction_source_segments": "correction_source_segments_json",
@@ -204,9 +242,26 @@ class NoteStore:
             connection.execute("DELETE FROM notes WHERE id = ?", (note_id,))
         return note
 
+    def record_upload(self, values: dict[str, Any]) -> None:
+        with self.lock, self._connect() as connection:
+            connection.execute("INSERT INTO upload_metrics VALUES (?, ?, ?, ?, ?, ?)",
+                               (values["note_id"], values["bytes"], values["transfer_seconds"],
+                                values["response_wait_seconds"], values["cf_ray"], datetime.now(UTC).isoformat()))
+            connection.execute("DELETE FROM upload_metrics WHERE rowid NOT IN (SELECT rowid FROM upload_metrics ORDER BY rowid DESC LIMIT 40)")
+
+    def upload_metrics(self) -> list[dict[str, Any]]:
+        with self.lock, self._connect() as connection:
+            rows = connection.execute("SELECT * FROM upload_metrics ORDER BY rowid DESC").fetchall()
+        return [dict(row) for row in rows]
+
     @staticmethod
     def _deserialize(row: sqlite3.Row) -> dict[str, Any]:
         result = dict(row)
+        result["speaker_merge_history"] = json.loads(result.pop("speaker_merge_history_json") or "[]")
+        result["summary_stale"] = bool(result["summary_stale"])
+        result["correction_usage"] = json.loads(result.pop("correction_usage_json") or "{}")
+        result["summary"] = json.loads(result.pop("summary_json") or "{}")
+        result["processing"] = json.loads(result.pop("processing_json") or "{}")
         result["raw_segments"] = json.loads(result.pop("raw_segments_json") or "[]")
         result["segments"] = json.loads(result.pop("segments_json") or "[]")
         result["correction_source_segments"] = json.loads(

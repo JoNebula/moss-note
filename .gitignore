@@ -11,6 +11,11 @@ __pycache__/
 data/
 models/
 logs/
+.cloudflare-tunnel-token
+.deployment-credentials
 .env
 .env.*
 !.env.example
+*.bundle
+*.sqlite3
+*.sqlite3-*

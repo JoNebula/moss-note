@@ -17,15 +17,19 @@ if [[ ! -x .venv-vllm/bin/python ]]; then
 fi
 
 echo "[3/5] MOSS 및 Qwen 지원 vLLM 설치"
-"$UV_BIN" pip install --python .venv-vllm/bin/python -U "vllm[audio]" \
+"$UV_BIN" pip install --python .venv-vllm/bin/python -U "${MOSS_VLLM_PACKAGE:-vllm[audio]}" \
   --torch-backend=auto \
   --extra-index-url "$VLLM_WHEEL_INDEX"
 
 echo "[4/5] MOSS 모델 다운로드"
 "$PROJECT_DIR/scripts/download-model.sh"
 
-echo "[5/5] Qwen3.8-27B-FP8 모델 다운로드"
-"$PROJECT_DIR/scripts/download-qwen.sh"
+if [[ "${MOSS_REQUIRE_QWEN:-false}" == "true" ]]; then
+  echo "[5/5] Qwen3.8-27B-FP8 모델 다운로드"
+  "$PROJECT_DIR/scripts/download-qwen.sh"
+else
+  echo "[5/5] Qwen disabled; skipping download"
+fi
 
 echo
 echo "설치 완료. ./scripts/start.sh 로 실행하세요."
