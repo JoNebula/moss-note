@@ -167,7 +167,7 @@ def validate_corrections(
     source_by_id = {int(item["id"]): item for item in source_segments}
     corrected: dict[int, str] = {}
     for item in items:
-        if not isinstance(item, dict) or not isinstance(item.get("id"), int):
+        if not isinstance(item, dict) or type(item.get("id")) is not int:
             raise ValueError("교정 결과의 발화 ID가 올바르지 않습니다.")
         segment_id = item["id"]
         text = item.get("text")

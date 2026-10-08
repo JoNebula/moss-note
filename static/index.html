@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#f5f7f2" />
     <title>MOSS Note</title>
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/styles.css?v=20261008-whole-speakers-fast" />
   </head>
   <body>
     <div class="app-shell">
@@ -17,6 +17,7 @@
           <span>MOSS <b>NOTE</b></span>
         </div>
 
+        <select class="mobile-note-picker" id="mobile-note-picker" aria-label="노트 선택"><option value="">내 노트 선택</option></select>
         <button class="new-note" id="open-upload">
           <span>＋</span> 새 노트 만들기
         </button>
@@ -43,7 +44,7 @@
           <p>회의, 인터뷰, 강의를 올리면 화자와 시간을 구분해<br />검색하고 다듬을 수 있는 노트로 바꿉니다.</p>
           <button class="primary-action" id="welcome-upload">첫 녹음 올리기 <span>→</span></button>
           <div class="feature-row">
-            <span>50+ 언어</span><i></i><span>화자 분리</span><i></i><span>90분+ 자동 분할</span><i></i><span>로컬 처리</span>
+            <span>50+ 언어</span><i></i><span>화자 분리</span><i></i><span id="chunk-feature">자동 분할</span><i></i><span>로컬 처리</span>
           </div>
         </section>
 
@@ -61,6 +62,8 @@
                   <button data-format="srt">자막 (.srt)</button>
                   <button data-format="vtt">웹 자막 (.vtt)</button>
                   <button data-format="json">데이터 (.json)</button>
+                  <button data-summary-format="md" disabled>핵심 요약 (.md)</button>
+                  <button data-summary-format="txt" disabled>핵심 요약 (.txt)</button>
                 </div>
               </div>
               <button class="icon-button danger" id="delete-note" aria-label="노트 삭제">⌫</button>
@@ -69,7 +72,12 @@
 
           <div class="processing-card hidden" id="processing-card">
             <div class="processing-wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-            <div><b id="processing-title">음성을 읽고 있어요</b><p id="processing-copy">화자와 문장을 나누는 중입니다. 이 페이지를 닫아도 작업은 계속됩니다.</p></div>
+            <div class="processing-detail"><b id="processing-title">음성을 읽고 있어요</b><p id="processing-copy"></p>
+              <div id="transcription-progress" class="transcription-progress hidden">
+                <progress id="transcription-meter" max="100" aria-label="전사 진행률"></progress>
+                <small id="transcription-eta" aria-live="polite"></small>
+              </div>
+            </div>
           </div>
 
           <div class="editor hidden" id="editor">
@@ -83,10 +91,10 @@
 
             <div class="correction-card" id="correction-card">
               <div class="correction-copy">
-                <div><span class="ai-mark">AI</span><b>기술 용어 교정</b></div>
-                <p id="correction-copy">Qwen3.8-27B가 문맥을 겹쳐 읽고 기술 용어와 오탈자를 교정합니다.</p>
-                <div class="correction-progress hidden" id="correction-progress"><i></i></div>
-                <div class="correction-chunks hidden" id="correction-chunks"></div>
+                <div><span class="ai-mark">AI</span><b>교정 · 핵심 요약</b></div>
+                <p id="correction-copy">Codex · gpt-6.1-sol · medium</p>
+                <small class="correction-privacy">교정 시 전사 텍스트를 OpenAI로 전송</small>
+                <progress class="correction-progress hidden" id="correction-progress" max="100" aria-label="AI 교정·요약 처리 중"></progress>
               </div>
               <button class="correction-button" id="start-correction">AI 교정 시작</button>
             </div>
@@ -95,9 +103,15 @@
               <button class="active" data-transcript-view="edited">편집본</button>
               <button data-transcript-view="corrected">AI 교정본</button>
               <button data-transcript-view="diff">변경 비교</button>
+              <button data-transcript-view="summary">핵심 요약</button>
             </div>
+            <div class="result-downloads hidden" id="result-downloads">
+              <a id="corrected-download" download>교정본 다운로드 (.txt)</a>
+              <a id="summary-download" download>요약 다운로드 (.md)</a>
+            </div>
+            <section class="summary-note hidden" id="summary-note" aria-label="핵심 요약 노트"></section>
 
-            <div class="editor-toolbar">
+            <div class="editor-toolbar" id="editor-toolbar">
               <label class="transcript-search">
                 <svg viewBox="0 0 24 24"><path d="m21 21-4.35-4.35m2.35-5.15a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z" /></svg>
                 <input id="transcript-search" type="search" placeholder="내용 검색" />
@@ -107,6 +121,12 @@
             </div>
 
             <div class="chunk-notice hidden" id="chunk-notice"></div>
+            <div class="speaker-tools" id="speaker-tools">
+              <select id="merge-speaker-target" aria-label="병합 대상 화자"><option value="">병합 대상 화자</option></select>
+              <button class="ghost-button" id="merge-speakers" disabled>화자 병합</button>
+              <button class="icon-button" id="undo-speaker-merge" title="최근 화자 병합 취소" aria-label="최근 화자 병합 취소" disabled>↶</button>
+              <small id="speaker-selection-status" aria-live="polite"></small>
+            </div>
             <div class="speaker-panel" id="speaker-panel"></div>
             <div class="segments" id="segments"></div>
           </div>
@@ -124,19 +144,24 @@
           <input id="audio-file" name="file" type="file" accept="audio/*,video/*" required />
           <span class="upload-icon">↥</span>
           <b id="drop-title">음성 또는 영상 파일을 놓으세요</b>
-          <small id="drop-copy">MP3, WAV, M4A, MP4 등 · 90분 초과 시 자동 분할 · 최대 5GB</small>
+          <small id="drop-copy">MP3, WAV, M4A, MP4</small>
         </label>
         <label class="field"><span>노트 제목 <small>선택</small></span><input name="title" placeholder="파일명으로 자동 생성" maxlength="200" /></label>
+        <label class="field"><span>전사 모델</span><select id="model-variant" name="model_variant"><option value="bf16">BF16 (original)</option></select></label>
         <div class="field-row">
           <label class="field"><span>주 언어</span><select name="language"><option value="ko">한국어</option><option value="en">English</option><option value="ja">日本語</option><option value="zh">中文</option><option value="">자동 감지</option></select></label>
           <label class="field"><span>중요 단어 <small>선택</small></span><input name="hotwords" placeholder="프로젝트명, 이름" /></label>
         </div>
-        <p class="privacy-note"><span>◆</span> 파일과 전사 결과는 이 서버 안에서만 처리됩니다.</p>
+        <p class="privacy-note"><span>◆</span> 음성 전사는 로컬 처리 · AI 교정 시 텍스트를 OpenAI로 전송</p>
+        <div id="upload-progress" class="upload-progress hidden" aria-live="polite">
+          <progress id="upload-meter" max="100" value="0" aria-label="파일 업로드"></progress>
+          <small id="upload-status"></small>
+        </div>
         <button class="submit-upload" type="submit">전사 시작하기 <span>→</span></button>
       </form>
     </dialog>
 
     <div class="toast" id="toast" role="status"></div>
-    <script src="/app.js" defer></script>
+    <script src="/app.js?v=20261008-whole-speakers-fast" defer></script>
   </body>
 </html>

@@ -27,7 +27,7 @@ fi
 
 if [[ -f "${QWEN_MODEL_PATH:-$PROJECT_DIR/models/Qwen3.8-27B-FP8}/config.json" ]]; then
   echo "ok   Qwen model"
-elif [[ "${MOSS_REQUIRE_QWEN:-true}" == "true" ]]; then
+elif [[ "${MOSS_REQUIRE_QWEN:-false}" == "true" ]]; then
   echo "miss Qwen model (run ./scripts/download-qwen.sh)"
   failures=$((failures + 1))
 else

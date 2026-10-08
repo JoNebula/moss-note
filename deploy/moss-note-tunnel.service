@@ -1,0 +1,18 @@
+[Unit]
+Description=Cloudflare Tunnel for stt.seongwoonjo.com
+After=network-online.target moss-note-app.service
+Wants=network-online.target moss-note-app.service
+RequiresMountsFor=/data
+ConditionPathExists=/data/projects/jetson/moss_stt/.cloudflare-tunnel-token
+
+[Service]
+Type=simple
+User=jetson
+Group=mlshared
+ExecStart=/usr/bin/cloudflared tunnel --config /data/projects/jetson/moss_stt/deploy/cloudflared.yml --no-autoupdate run --token-file /data/projects/jetson/moss_stt/.cloudflare-tunnel-token
+Restart=on-failure
+RestartSec=10
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

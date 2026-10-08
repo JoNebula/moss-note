@@ -10,17 +10,22 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install FFmpeg and project
+      - name: Install audio test dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          sudo apt-get install -y --no-install-recommends ffmpeg
+      - name: Install Python project
+        run: |
           python -m pip install uv
           uv sync --frozen --group dev
+      - name: Prepare isolated Jetson cache paths
+        run: sudo install -d -o "$(id -un)" /data/caches/moss-note/tmp /data/caches/moss-note/codex
       - name: Python tests
         run: .venv/bin/pytest -q
       - name: Syntax checks
